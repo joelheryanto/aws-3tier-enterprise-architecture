@@ -19,13 +19,16 @@ Proyek ini mendokumentasikan implementasi arsitektur jaringan 3-Tier Web Archite
 
 ## Network Topology & VLSM Subnetting Plan
 
-Infrastruktur ini dialokasikan pada CIDR Block utama sebesar **10.0.0.0/16** (65,536 IP) dan dipecah secara presisi menggunakan tekVLSMSM** ke dalam 6 subnet lintas Availability Zones (ap-southeast-3a & ap-southeast-3b):
+Infrastruktur ini dialokasikan pada CIDR Block utama sebesar **`10.0.0.0/16`** (65,536 IP) dan dipecah secara presisi menggunakan **VLSM** ke dalam 6 subnet lintas Availability Zones (`ap-southeast-1a` & `ap-southeast-1b`):
 
 | Tier | Subnet Name | Availability Zone | CIDR Block | Total IP | Function |
-| :--- | :--- | :--- | :--- | :--- | :--- Tier 1: Webeb** | Public-Subnet-1-AZ-A | ap-southeast-3a | 10.0.1.0/24 | 251 | Internet Gateway & NAT Gateway |
-| | Public-Subnet-2-AZ-B | ap-southeast-3b | 10.0.2.0/24 | 251 | Internet Gateway & Load Balancer Tier 2: Apppp** | Private-App-Subnet-1-AZ-A | ap-southeast-3a | 10.0.10.0/23 | 507 | EC2 Backend Application |
-| | Private-App-Subnet-2-AZ-B | ap-southeast-3b | 10.0.12.0/23 | 507 | EC2 Backend Application Tier 3: Datata** | Private-DB-Subnet-1-AZ-A | ap-southeast-3a | 10.0.20.0/24 | 251 | Amazon RDS (Primary Instance) |
-| | Private-DB-Subnet-2-AZ-B | ap-southeast-3b | 10.0.21.0/24 | 251 | Amazon RDS (Standby Instance) |
+| :--- | :--- | :--- | :--- | :--- | :--- | 
+| **Tier 1: Web** | `Public-Subnet-1-AZ-A` | ap-southeast-1a | `10.0.1.0/24` | 251 | Internet Gateway & NAT Gateway |
+| | `Public-Subnet-2-AZ-B` | ap-southeast-1b | `10.0.2.0/24` | 251 | Internet Gateway & Load Balancer |
+| **Tier 2: App** | `Private-App-Subnet-1-AZ-A` | ap-southeast-1a | `10.0.10.0/23` | 507 | EC2 Backend Application |
+| | `Private-App-Subnet-2-AZ-B` | ap-southeast-1b | `10.0.12.0/23` | 507 | EC2 Backend Application | 
+| **Tier 3: Data** | `Private-DB-Subnet-1-AZ-A` | ap-southeast-1a | `10.0.20.0/24` | 251 | Amazon RDS (Primary Instance) |
+| | `Private-DB-Subnet-2-AZ-B` | ap-southeast-1b | `10.0.21.0/24` | 251 | Amazon RDS (Standby Instance) |
 
 ### Network Foundation Proof:
 Berikut adalah hasil visualisasi pembagian 6 subnet Multi-AZ yang sukses terkonfigurasi di AWS Console:
@@ -35,31 +38,38 @@ Berikut adalah hasil visualisasi pembagian 6 subnet Multi-AZ yang sukses terkonf
 
 ## Routing Tables & Internet Connectivity
 
-Untuk menjamin keamanan, rute komunikasi diatur secara ketat melalui pemisahan Route Tables:Public Route Table:e:** Menghubungkan Subnet Public secara dua arah ke internet publik melaInternet Gateway (IGW)W)** (0.0.0.0/0 -> igw-xxxx).Private Route Table:e:** Menghubungkan Subnet Application secara satu arah ke internet melaNAT Gateway (Zonal)l)** untuk kebutuhan update patch tanpa mengekspos server ke publik.
+Untuk menjamin keamanan, rute komunikasi diatur secara ketat melalui pemisahan Route Tables:
+* **Public Route Table:** Menghubungkan Subnet Public secara dua arah ke internet publik melalui **Internet Gateway (IGW)** (`0.0.0.0/0 -> igw-xxxx`).
+* **Private Route Table:** Menghubungkan Subnet Application secara satu arah ke internet melalui **NAT Gateway (Zonal)** untuk kebutuhan update patch tanpa mengekspos server ke publik.
 
-### Routing ProofsPublic Route Target (IGW):):**
-![Public Route Target](architecture-diagrams/02-public-route-target.pngExplicit Public Subnet Association:n:**
-![Public Subnet Association](architecture-diagrams/03-public-subnet-association.pngZonal NAT Gateway Deployment (AZ-A):):**
-![NAT Gateway Details](architecture-diagrams/04-nat-gateway-details.pngPrivate Route Target (NAT Gateway):):**
+### Routing Proofs 
+* **Public Route Target (IGW):**
+![Public Route Target](architecture-diagrams/02-public-route-target.png)
+* **Explicit Public Subnet Association:**
+![Public Subnet Association](architecture-diagrams/03-public-subnet-association.png)
+* **Zonal NAT Gateway Deployment (AZ-A):**
+![NAT Gateway Details](architecture-diagrams/04-nat-gateway-details.png)
+* **Private Route Target (NAT Gateway):**
 ![Private Route Target](architecture-diagrams/05-private-route-target.png)
 
 ---
 
 ## Firewall Berlapis: Chained Security Groups
 
-Proyek ini tidak menggunakan hardcoded IP pada aturan firewall, melainkan menerapSecurity Group Chainingng** di mana satu security group mengotorisasi security group tingkat selanjutnya.
+Proyek ini tidak menggunakan hardcoded IP pada aturan firewall, melainkan menerapkan metode **Security Group Chaining** di mana satu security group mengotorisasi traffic yang datang dari security group tingkat sebelumnya.
 
+```text
 [ Internet ] ---> [ Enterprise-ALB-SG ] (Ports 80/443)
-│
-▼
-[ Enterprise-App-SG ] (Port 8080) Only accepts from ALB-SG
-│
-▼
-[ Enterprise-DB-SG ]  (Port 5432) Only accepts from App-SG
-
+                        │
+                        ▼
+                  [ Enterprise-App-SG ] (Port 8080) Only accepts from ALB-SG
+                        │
+                        ▼
+                  [ Enterprise-DB-SG ]  (Port 5432) Only accepts from App-SG
+```
 ### Security Group Isolation Proof:
 Bukti inbound rule pada Database Tier (Enterprise-DB-SG) yang terkunci rapat dan hanya menerima koneksi dari Application Tier (Enterprise-App-SG):
-![Chained Security Group](architecture-diagrams/06-chained-security-group-db.png)
+![Chained Security Group](architecture-diagrams/06-chained-security-group-db-from-sg-app-ec2.png)
 
 ---
 
