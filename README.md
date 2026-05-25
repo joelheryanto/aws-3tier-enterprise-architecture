@@ -98,8 +98,6 @@ Database dikelompokkan ke dalam DB Subnet Group lintas wilayah untuk fondasi Mul
 ### Database Configuration Status:
 * DB Subnet Group Multi-AZ Boundary:
 ![RDS Subnet Group](architecture-diagrams/09-rds-subnet-group-configuration.png)
-* Isolated Database Instance:
-![RDS Private Status](architecture-diagrams/10-rds-isolated-private.png)
 
 ---
 
